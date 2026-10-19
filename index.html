@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一脚踏两船 ～心跳的双线作战～</title>
+<style>
+  :root {
+    --ink: #f5f2ea;
+    --panel: rgba(18, 20, 34, 0.82);
+    --panel-line: rgba(255, 255, 255, 0.12);
+    --accent: #ffd76b;
+    --akiha: #ff8fb0;
+    --rena: #7fb3ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+    background: #0b0e1a;
+    color: var(--ink);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea, select { font-family: inherit; }
+
+  .screen { position: fixed; inset: 0; display: none; }
+  .screen.on { display: block; }
+
+  /* ===== 标题画面 ===== */
+  #title { background: #0b0e1a; display: none; }
+  #title.on { display: block; }
+  #title.fallback {
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(255, 173, 208, 0.28), transparent 60%),
+      radial-gradient(900px 500px at 82% 110%, rgba(127, 179, 255, 0.25), transparent 60%),
+      linear-gradient(180deg, #171d3a 0%, #2b1e4d 55%, #0b0e1a 100%);
+  }
+  .title-stage {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
+    background: #0b0e1a;
+  }
+  #titleBg { width: 100%; height: 100%; display: block; object-fit: fill; }
+  .hotspot {
+    position: absolute; background: transparent; border: none; padding: 0; cursor: pointer;
+  }
+  .hotspot:hover { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
+  .small-edit {
+    position: absolute; left: 2.2%; bottom: 3.4%; z-index: 3;
+    font-size: 13px; letter-spacing: 0.12em; color: rgba(255,255,255,0.72);
+    background: rgba(10,12,26,0.42); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px; padding: 6px 13px; backdrop-filter: blur(3px);
+  }
+  .small-edit:hover { color: #fff; background: rgba(255,255,255,0.14); }
+
+  #title.fallback .title-stage { display: none; }
+  .title-fallback {
+    display: none; position: absolute; inset: 0; z-index: 1;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px;
+  }
+  #title.fallback .title-fallback { display: flex; }
+  .title-kicker { letter-spacing: 0.45em; font-size: 13px; color: rgba(255,255,255,0.55); }
+  .title-main {
+    font-size: clamp(46px, 9vw, 96px); font-weight: 800; letter-spacing: 0.08em;
+    background: linear-gradient(120deg, #ffd76b, #ff9fc4 45%, #7fb3ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 24px rgba(255, 143, 176, 0.25));
+  }
+  .title-sub { font-size: 16px; letter-spacing: 0.2em; color: rgba(255,255,255,0.75); }
+  .menu-card {
+    width: min(430px, 90vw);
+    background: rgba(10, 12, 26, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    backdrop-filter: blur(6px);
+  }
+  .menu-card button {
+    padding: 13px 20px; font-size: 18px; letter-spacing: 0.3em;
+    color: var(--ink); background: rgba(255,255,255,0.06);
+    border: 1px solid var(--panel-line); border-radius: 12px;
+    transition: all 0.18s ease;
+  }
+  .menu-card button:hover {
+    background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.35);
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .menu-card button.primary { background: var(--accent); color: #2a2410; border-color: transparent; font-weight: 700; }
+  .menu-card button.danger { color: #ff9aa0; }
+  .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .menu-grid button { letter-spacing: 0.25em; font-size: 16px; }
+
+  /* ===== 游戏画面 ===== */
+  #game { background: #0b0e1a; }
+  #bg {
+    position: absolute; inset: 0; z-index: 0;
+    background-color: #1a1d30;
+    background-size: cover;
+    background-position: center;
+    transition: background-image 0.5s ease;
+  }
+  #bg::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(10,10,22,0.5) 100%);
+    pointer-events: none;
+  }
+
+  #charLayer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .sprite {
+    position: absolute;
+    bottom: 0;
+    height: 90vh;
+    max-height: 92vh;
+    opacity: 0;
+    transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease;
+    will-change: transform, opacity;
+  }
+  .sprite img { height: 100%; width: auto; display: block; filter: drop-shadow(0 12px 22px rgba(0,0,0,0.35)); }
+  .sprite.show { opacity: 1; }
+  .sprite.left   { left: 6%;  transform: translateX(0); }
+  .sprite.right  { right: 6%; transform: translateX(0); }
+  .sprite.center { left: 50%; transform: translateX(-50%); }
+  .sprite.dim { opacity: 0.45; }
+  .sprite.dim img { filter: drop-shadow(0 8px 14px rgba(0,0,0,0.25)) brightness(0.82); }
+
+  .scene-label {
+    position: absolute; top: 18px; left: 20px; z-index: 3;
+    font-size: 13px; letter-spacing: 0.18em; color: rgba(255,255,255,0.9);
+    background: rgba(0,0,0,0.32); padding: 6px 12px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(4px);
+  }
+  .top-btns { position: absolute; top: 14px; right: 16px; z-index: 3; display: flex; gap: 8px; }
+  .top-btns button {
+    background: rgba(0,0,0,0.32); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 999px; padding: 7px 14px; font-size: 13px; letter-spacing: 0.1em; backdrop-filter: blur(4px);
+  }
+  .top-btns button.on { background: var(--accent); color: #2a2410; border-color: transparent; }
+
+  #dialogue {
+    position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    width: min(920px, 92vw); z-index: 4;
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 16px;
+    padding: 20px 24px 22px; backdrop-filter: blur(8px);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.35); cursor: pointer; min-height: 150px;
+  }
+  .name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 24px; }
+  .name-pill {
+    padding: 3px 14px; border-radius: 8px; font-size: 15px; font-weight: 700; letter-spacing: 0.08em;
+    background: var(--accent); color: #2a2410;
+  }
+  .name-pill.narr { background: #4a4d63; color: #e7e6ef; }
+  .name-pill.hero { background: var(--accent); color: #2a2410; }
+  .name-pill.akiha { background: var(--akiha); color: #3a1020; }
+  .name-pill.rena { background: var(--rena); color: #0d1c33; }
+  #textbox { font-size: 20px; line-height: 1.75; letter-spacing: 0.02em; white-space: pre-wrap; min-height: 72px; }
+  #dialogue.narr-mode #textbox { text-align: center; font-style: italic; color: #d9d7e8; }
+  .adv-hint {
+    position: absolute; right: 18px; bottom: 12px; font-size: 11px;
+    color: rgba(255,255,255,0.45); letter-spacing: 0.08em; animation: blink 1.6s infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+  #choices {
+    position: absolute; left: 50%; bottom: 210px; transform: translateX(-50%);
+    width: min(720px, 90vw); z-index: 5; display: flex; flex-direction: column; gap: 12px;
+  }
+  .choice-prompt {
+    text-align: center; font-size: 15px; letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.9); text-shadow: 0 2px 8px rgba(0,0,0,0.6); margin-bottom: 4px;
+  }
+  .choice-btn {
+    padding: 14px 18px; font-size: 17px; color: #fff;
+    background: rgba(20,22,40,0.72); border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 12px; text-align: center; transition: all 0.16s ease; backdrop-filter: blur(6px);
+  }
+  .choice-btn:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); transform: translateX(4px); }
+
+  /* ===== 弹窗 / 覆盖层 ===== */
+  .overlay {
+    position: fixed; inset: 0; z-index: 20; background: rgba(5,6,14,0.72);
+    display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px);
+  }
+  .overlay.on { display: flex; }
+  .panel {
+    width: min(560px, 92vw); max-height: 84vh; overflow: auto;
+    background: linear-gradient(180deg, #20243c, #15182a);
+    border: 1px solid var(--panel-line); border-radius: 18px; padding: 26px 28px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  }
+  .panel h2 { font-size: 22px; letter-spacing: 0.2em; margin-bottom: 18px; color: #fff; }
+  .menu { display: flex; flex-direction: column; gap: 12px; }
+  .menu button {
+    padding: 13px 20px; font-size: 18px; letter-spacing: 0.3em;
+    color: var(--ink); background: rgba(255,255,255,0.06);
+    border: 1px solid var(--panel-line); border-radius: 12px; transition: all 0.18s ease;
+  }
+  .menu button:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.35); }
+  .slot-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border: 1px solid var(--panel-line); border-radius: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.04);
+  }
+  .slot-info { flex: 1; min-width: 0; }
+  .slot-name { font-size: 15px; color: #fff; }
+  .slot-meta { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+  .slot-row .btn, .panel-actions .btn {
+    padding: 8px 14px; font-size: 13px; color: #fff; border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08);
+  }
+  .slot-row .btn.primary, .panel-actions .btn.primary { background: var(--accent); color: #2a2410; border-color: transparent; font-weight: 700; }
+  .slot-row .btn.danger { color: #ff9aa0; border-color: rgba(255,154,160,0.4); }
+
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .setting-row .lab { font-size: 15px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    padding: 7px 13px; font-size: 13px; color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06); border-radius: 8px;
+  }
+  .seg button.on { background: var(--accent); color: #2a2410; border-color: transparent; font-weight: 700; }
+  .range-row { flex-direction: column; align-items: stretch; }
+  .range-row .lab { margin-bottom: 6px; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .panel-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .panel-actions .btn { padding: 10px 20px; font-size: 15px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 40;
+    background: rgba(20,22,40,0.92); border: 1px solid var(--panel-line); padding: 10px 18px;
+    border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+  .toast.show { opacity: 1; }
+
+  #endScreen {
+    position: fixed; inset: 0; z-index: 18;
+    background: linear-gradient(180deg, #171d3a, #0b0e1a);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center; padding: 24px;
+  }
+  #endScreen.on { display: flex; }
+  #endScreen .end-title {
+    font-size: clamp(30px, 6vw, 58px); font-weight: 800; letter-spacing: 0.15em;
+    background: linear-gradient(120deg, #ffd76b, #ff9fc4, #7fb3ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  #endScreen .end-text { max-width: 560px; font-size: 16px; line-height: 1.8; color: rgba(255,255,255,0.8); white-space: pre-line; }
+
+  /* ===== 剧本编辑器 ===== */
+  #editor { background: #12162a; display: none; flex-direction: column; }
+  #editor.on { display: flex; }
+  .ed-toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--panel-line);
+  }
+  .ed-toolbar .title { font-size: 16px; letter-spacing: 0.15em; margin-right: auto; color: #fff; }
+  .ed-toolbar button, .ed-form button {
+    padding: 8px 13px; font-size: 13px; color: #fff; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08);
+  }
+  .ed-toolbar button.primary { background: var(--accent); color: #2a2410; border-color: transparent; font-weight: 700; }
+  .ed-toolbar button.danger { color: #ff9aa0; border-color: rgba(255,154,160,0.4); }
+  .ed-body { flex: 1; display: flex; min-height: 0; }
+  .ed-list {
+    width: 300px; min-width: 240px; overflow: auto; border-right: 1px solid var(--panel-line); padding: 10px;
+  }
+  .ed-list-item {
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 10px;
+    margin-bottom: 6px; background: rgba(255,255,255,0.05); cursor: pointer; border: 1px solid transparent;
+  }
+  .ed-list-item:hover { background: rgba(255,255,255,0.09); }
+  .ed-list-item.sel { border-color: var(--accent); background: rgba(255,215,107,0.12); }
+  .ed-list-item .idx { font-size: 12px; color: #8a8fa8; min-width: 24px; text-align: center; }
+  .ed-list-item .main { flex: 1; min-width: 0; }
+  .ed-list-item .who { font-size: 12px; color: #9aa0b8; }
+  .ed-list-item .txt { font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ed-list-item .tag { font-size: 11px; color: var(--accent); white-space: nowrap; }
+  .ed-form { flex: 1; overflow: auto; padding: 16px 22px 40px; }
+  .ed-form .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .ed-form .row > .cell { flex: 1; min-width: 180px; }
+  .ed-form label { display: block; font-size: 13px; color: #b9bed8; margin: 14px 0 5px; }
+  .ed-form input[type="text"], .ed-form textarea, .ed-form select {
+    width: 100%; background: #1b1f36; color: #fff; border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px;
+  }
+  .ed-form textarea { min-height: 74px; resize: vertical; }
+  .char-cfg { border: 1px solid var(--panel-line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .char-cfg .ctitle { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .char-cfg .row { gap: 10px; }
+  .ed-opt { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .ed-opt input.txt { flex: 1; }
+  .ed-opt input.goto { width: 96px; }
+  .ed-opt button { color: #ff9aa0; border-color: rgba(255,154,160,0.4); padding: 7px 10px; }
+  .hint { font-size: 12px; color: #6f7490; margin-top: 6px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+  <!-- 标题 -->
+  <div id="title" class="screen on">
+    <div class="title-stage">
+      <img id="titleBg" src="assets/title.png" alt="主界面">
+      <button id="btnStart" class="hotspot" style="left:77.34%;top:10.42%;width:16.41%;height:11.11%;" title="开始游戏"></button>
+      <button id="btnLoad" class="hotspot" style="left:77.34%;top:27.08%;width:16.41%;height:10.42%;" title="读取存档"></button>
+      <button id="btnSave" class="hotspot" style="left:77.34%;top:43.40%;width:16.41%;height:10.42%;" title="保存存档"></button>
+      <button id="btnSettings" class="hotspot" style="left:77.34%;top:59.72%;width:16.41%;height:10.42%;" title="系统设置"></button>
+      <button id="btnQuit" class="hotspot" style="left:79.69%;top:76.04%;width:12.11%;height:10.42%;" title="退出"></button>
+      <button id="btnEditorSmall" class="small-edit">✎ 剧本编辑</button>
+    </div>
+    <div class="title-fallback">
+      <div class="title-kicker">短篇视觉小说</div>
+      <div class="title-main">一脚踏两船</div>
+      <div class="title-sub">～心跳的双线作战～</div>
+      <div class="menu-card">
+        <button id="fbStart" class="primary">开 始</button>
+        <div class="menu-grid">
+          <button id="fbSave">存 档</button>
+          <button id="fbLoad">读 档</button>
+          <button id="fbSettings">设 置</button>
+          <button id="fbEditor">剧本编辑</button>
+        </div>
+        <button id="fbQuit" class="danger">结 束</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏 -->
+  <div id="game" class="screen">
+    <div id="bg"></div>
+    <div id="charLayer">
+      <div class="sprite right" id="spriteAkiha"><img src="assets/akiha-char1.png" alt="秋叶"></div>
+      <div class="sprite left" id="spriteRena"><img src="assets/rena-char1.png" alt="玲奈"></div>
+    </div>
+    <div class="scene-label" id="sceneLabel">教室内</div>
+    <div class="top-btns">
+      <button id="btnAuto">自动</button>
+      <button id="btnMenu">菜单</button>
+    </div>
+    <div id="choices"></div>
+    <div id="dialogue">
+      <div class="name-row"><span class="name-pill" id="namePill"></span></div>
+      <div id="textbox"></div>
+      <div class="adv-hint">▼ 点击推进</div>
+    </div>
+  </div>
+
+  <!-- 剧本编辑器 -->
+  <div id="editor" class="screen">
+    <div class="ed-toolbar">
+      <span class="title">剧本编辑器</span>
+      <button id="edAddText">＋ 文本句</button>
+      <button id="edAddChoice">＋ 选项</button>
+      <button id="edAddEnd">＋ 结局</button>
+      <button id="edDup">复制</button>
+      <button id="edUp">上移</button>
+      <button id="edDown">下移</button>
+      <button id="edDel" class="danger">删除</button>
+      <button id="edImport">导入 JSON</button>
+      <button id="edExport">导出 JSON</button>
+      <button id="edReset" class="danger">重置默认</button>
+      <button id="edSave" class="primary">保存</button>
+      <button id="edPlay" class="primary">试玩</button>
+      <button id="edBack">返回标题</button>
+    </div>
+    <div class="ed-body">
+      <div class="ed-list" id="edList"></div>
+      <div class="ed-form" id="edForm"></div>
+    </div>
+  </div>
+
+  <!-- 结局 -->
+  <div id="endScreen">
+    <div class="end-title" id="endTitle">—— 完 ——</div>
+    <div class="end-text" id="endText"></div>
+    <button id="btnEndTitle" style="padding:12px 28px;font-size:16px;border-radius:12px;border:none;background:#ffd76b;color:#2a2410;font-weight:700;">返回标题</button>
+  </div>
+
+  <!-- 菜单 -->
+  <div class="overlay" id="overlayMenu">
+    <div class="panel">
+      <h2>菜单</h2>
+      <div class="menu" style="width:100%;">
+        <button id="menuResume">返回游戏</button>
+        <button id="menuSave">存档</button>
+        <button id="menuLoad">读档</button>
+        <button id="menuSettings">设置</button>
+        <button id="menuEditor">剧本编辑</button>
+        <button id="menuTitle">返回标题</button>
+        <button id="menuQuit" style="color:#ff9aa0;">结束游戏</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 存档/读档 -->
+  <div class="overlay" id="overlaySlots">
+    <div class="panel">
+      <h2 id="slotsTitle">存档</h2>
+      <div id="slotsList"></div>
+      <div class="panel-actions"><button class="btn" id="slotsBack">返回</button></div>
+    </div>
+  </div>
+
+  <!-- 设置 -->
+  <div class="overlay" id="overlaySettings">
+    <div class="panel">
+      <h2>设置</h2>
+      <div class="setting-row">
+        <span class="lab">文字速度</span>
+        <div class="seg" id="segSpeed">
+          <button data-v="slow">慢</button>
+          <button data-v="normal">标准</button>
+          <button data-v="fast">快</button>
+          <button data-v="instant">即时</button>
+        </div>
+      </div>
+      <div class="setting-row range-row">
+        <span class="lab">自动播放间隔：<span id="autoDelayVal"></span> 秒</span>
+        <input type="range" id="autoDelayRange" min="1" max="5" step="0.5" value="2.5">
+      </div>
+      <div class="setting-row">
+        <span class="lab">全屏显示</span>
+        <button class="btn" id="btnFullscreen">切换全屏</button>
+      </div>
+      <div class="setting-row">
+        <span class="lab">删除全部存档</span>
+        <button class="btn" id="btnClearSaves" style="color:#ff9aa0;">清空</button>
+      </div>
+      <div class="panel-actions"><button class="btn primary" id="settingsBack">完成</button></div>
+    </div>
+  </div>
+
+  <!-- 结束确认 -->
+  <div class="overlay" id="overlayQuit">
+    <div class="panel" style="text-align:center;">
+      <h2 style="margin-bottom:12px;">结束游戏？</h2>
+      <p style="color:rgba(255,255,255,0.7);font-size:14px;">确定要关闭游戏吗？</p>
+      <div class="panel-actions" style="justify-content:center;">
+        <button class="btn" id="quitCancel">取消</button>
+        <button class="btn" id="quitOk" style="color:#ff9aa0;">结束</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="edFile" accept=".json,application/json" style="display:none">
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+
+const BG = {
+  classroom:  { label: "教室内", img: "assets/bg_classroom.png" },
+  campus:     { label: "校园内", img: "assets/bg_campus.png" },
+  playground: { label: "操场",   img: "assets/bg_playground.png" },
+  stairwell:  { label: "楼梯间", img: "assets/bg_stairwell.png" },
+  gate:       { label: "校门",   img: "assets/bg_gate.png" }
+};
+
+/* ---------- 默认剧本（带 id 的分支，buildSteps 会解析成 1-based 跳转） ---------- */
+const DEFAULT_RAW = [
+  { id:"p1", t:"text", who:"旁白", text:"我，一条悠人，是一名普通的高中生。", bg:"classroom", akiha:{show:false}, rena:{show:false} },
+  { id:"p2", t:"text", who:"旁白", text:"普通到，如果问起班上的同学，他们大概只会说——“哦，那个下课总是一个人发呆的家伙。”" },
+  { id:"p3", t:"text", who:"悠人", text:"（内心）要是被他们知道，我其实同时在和两个女生交往……我的人生，大概就到此为止了。" },
+  { id:"p4", t:"text", who:"悠人", text:"（内心）一切都源于两个月前，一场谁也没料到的误会。" },
+  { id:"p5", t:"text", who:"悠人", text:"（内心）等我回过神来，已经成了“脚踏两条船”的男人。想回头，却总找不到合适的时机。" },
+  { id:"p6", t:"text", who:"悠人", text:"（内心）更要命的是，那两个女生，一个坐在我左边，一个坐在我右边。" },
+  { id:"p7", t:"text", who:"旁白", text:"左边是秋叶，体育系的元气少女，笑容比窗外的阳光还要亮。" },
+  { id:"p8", t:"text", who:"旁白", text:"右边是玲奈，图书委员的温柔优等生，安静得像午后的一阵风。" },
+  { id:"p9", t:"text", who:"悠人", text:"（内心）被她们任何一个人发现真相，我大概都会当场社会性死亡。" },
+  { id:"p10", t:"text", who:"旁白", text:"早自习结束的铃声刚响，两张小纸条，几乎同时落到了你的桌上。" },
+  { id:"p11", t:"text", who:"秋叶", text:"悠人！放学后去操场看足球部练习吧！我有重要的事想跟你说~", akiha:{show:true, pos:"center"} },
+  { id:"p12", t:"text", who:"玲奈", text:"悠人君，今天放学后，能在教室陪我整理图书吗？有本你一定会喜欢的书。", akiha:{pos:"right"}, rena:{show:true, pos:"left"} },
+  { id:"p13", t:"text", who:"旁白", text:"左一个“操场”，右一个“教室”。这，就是传说中的“双线作战”。" },
+  { id:"p14", t:"text", who:"悠人", text:"（内心）……怎么办？总之，先回纸条吧。" },
+  { id:"c1", t:"choice", prompt:"先回谁的消息？", opts:[
+    { label:"「包在我身上！」给秋叶", goto:"rA1" },
+    { label:"「好，我陪你去。」给玲奈", goto:"rB1" },
+    { label:"把两张纸条叠在一起，回「我全都要去」", goto:"rC1" }
+  ] },
+  { id:"rA1", t:"text", who:"悠人", text:"（内心）先把秋叶稳住，再想办法。", next:"m1" },
+  { id:"rB1", t:"text", who:"悠人", text:"（内心）先安抚玲奈这边，稳字当头。", next:"m1" },
+  { id:"rC1", t:"text", who:"秋叶", text:"诶？你回给我的纸条上写着「我全都要去」……这是写给我的吗？" },
+  { id:"rC1b", t:"text", who:"玲奈", text:"悠人君，我这里也收到了同样的纸条……" },
+  { id:"rC1c", t:"text", who:"悠人", text:"（内心）完了，纸条递反了。好险，差点当场翻车。", next:"m1" },
+  { id:"m1", t:"text", who:"悠人", text:"（内心）事已至此，只能靠“完美的时间管理”了。" },
+  { id:"m2", t:"text", who:"旁白", text:"上午的课，你一个字都没听进去，满脑子都是放学后的安排。" },
+  { id:"m3", t:"text", who:"悠人", text:"（内心）得先把两条路线画出来，算出最短的往返时间……" },
+  { id:"m4", t:"text", who:"旁白", text:"午休的校园，阳光正好。你假装去小卖部，实则侦察地形。", bg:"campus", akiha:{show:false}, rena:{show:false} },
+  { id:"m5", t:"text", who:"悠人", text:"（内心）从教室到操场，走连廊只要三分钟；从操场绕回教室，走后面的小路四分钟。来得及！" },
+  { id:"m6", t:"text", who:"旁白", text:"你正盘算得入神，身后忽然传来一个声音。" },
+  { id:"c2", t:"choice", prompt:"午休时，撞见你的是谁？", opts:[
+    { label:"秋叶", goto:"rA2" },
+    { label:"玲奈", goto:"rB2" },
+    { label:"班主任", goto:"rC2" }
+  ] },
+  { id:"rA2", t:"text", who:"秋叶", text:"悠人！午休你在这晃悠什么呀？", akiha:{show:true, pos:"center"} },
+  { id:"rA2b", t:"text", who:"悠人", text:"我在……思考人生！" },
+  { id:"rA2c", t:"text", who:"秋叶", text:"又在胡说了。下午体育课，可别迟到哦。", next:"m7" },
+  { id:"rB2", t:"text", who:"玲奈", text:"悠人君，中午好。", rena:{show:true, pos:"center"} },
+  { id:"rB2b", t:"text", who:"悠人", text:"玲、玲奈！我在……散步。" },
+  { id:"rB2c", t:"text", who:"玲奈", text:"记得好好吃午饭，下午还有体育课。", next:"m7" },
+  { id:"rC2", t:"text", who:"班主任", text:"一条同学，午休不要在连廊逗留。", akiha:{show:false}, rena:{show:false} },
+  { id:"rC2b", t:"text", who:"悠人", text:"是、是！我马上回教室！" },
+  { id:"rC2c", t:"text", who:"旁白", text:"你在心里擦了把冷汗。", next:"m7" },
+  { id:"m7", t:"text", who:"悠人", text:"（内心）呼……无论如何，先撑过下午再说。" },
+  { id:"m8", t:"text", who:"旁白", text:"你转身离开。风吹过连廊，把心事吹得沙沙响。", akiha:{show:false}, rena:{show:false} },
+  { id:"g1", t:"text", who:"旁白", text:"下午的体育课，在操场。你被分到和秋叶一组做拉伸。", bg:"playground", akiha:{show:true, pos:"center"} },
+  { id:"g2", t:"text", who:"秋叶", text:"悠人，你的腰好硬啊，压不下去——我来帮你！" },
+  { id:"g3", t:"text", who:"悠人", text:"等、等一下！这样贴太近了啦！" },
+  { id:"g4", t:"text", who:"旁白", text:"不远处，玲奈正抱着记录板，朝这边看了一眼。", akiha:{pos:"right"}, rena:{show:true, pos:"left"} },
+  { id:"g5", t:"text", who:"悠人", text:"（内心）不妙，玲奈的眼神……有点冷。" },
+  { id:"g6", t:"text", who:"玲奈", text:"悠人君，体育课的拉伸要好好做，不然会受伤的。" },
+  { id:"g7", t:"text", who:"悠人", text:"（内心）这句话听起来是关心，为什么我后背直发凉……" },
+  { id:"c3", t:"choice", prompt:"怎么办？", opts:[
+    { label:"故意摔倒，说脚扭了", goto:"rA3" },
+    { label:"硬着头皮把拉伸做完", goto:"rB3" },
+    { label:"大喊「我要去厕所」", goto:"rC3" }
+  ] },
+  { id:"rA3", t:"text", who:"悠人", text:"哎哟！我的脚好像扭了！" },
+  { id:"rA3b", t:"text", who:"秋叶", text:"没事吧？要不要去保健室？" },
+  { id:"rA3c", t:"text", who:"旁白", text:"你用略显浮夸的演技，逃过了一劫。", next:"g8" },
+  { id:"rB3", t:"text", who:"悠人", text:"（内心）不能躲。躲了，反而显得更可疑。" },
+  { id:"rB3b", t:"text", who:"旁白", text:"你咬牙把拉伸做完，感觉后背一阵凉意。", next:"g8" },
+  { id:"rC3", t:"text", who:"悠人", text:"我要去厕所！现在！立刻！马上！" },
+  { id:"rC3b", t:"text", who:"秋叶", text:"哈？现在？" },
+  { id:"rC3c", t:"text", who:"旁白", text:"你用最丢人的方式，逃过了一劫。", next:"g8" },
+  { id:"g8", t:"text", who:"旁白", text:"下课铃终于响起。你如释重负，长出一口气。" },
+  { id:"g9", t:"text", who:"悠人", text:"（内心）但真正的考验，现在才要开始。" },
+  { id:"s1", t:"text", who:"旁白", text:"放学铃响。你借口“去拿忘在教室的书”，躲进了楼梯间。", bg:"stairwell", akiha:{show:false}, rena:{show:false} },
+  { id:"s2", t:"text", who:"悠人", text:"（内心）好，第一阶段——先安抚玲奈，去教室；第二阶段——再绕去操场找秋叶。" },
+  { id:"s3", t:"text", who:"悠人", text:"（内心）只要控制好时间差，就能神不知鬼不觉。" },
+  { id:"s4", t:"text", who:"旁白", text:"手机震了。是玲奈：我已经在教室等你了。" },
+  { id:"c4", t:"choice", prompt:"怎么回复？", opts:[
+    { label:"「马上到，刚才在帮老师搬东西。」", goto:"rA4" },
+    { label:"「我在楼梯间，脚麻了，等我缓缓。」", goto:"rB4" },
+    { label:"「其实我在操场，你信吗？」", goto:"rC4" }
+  ] },
+  { id:"rA4", t:"text", who:"悠人", text:"「马上到，刚才在帮老师搬东西。」" },
+  { id:"rA4b", t:"text", who:"玲奈（消息）", text:"辛苦了，慢慢来，我等你。", next:"k1" },
+  { id:"rB4", t:"text", who:"悠人", text:"「我在楼梯间，脚麻了，等我缓缓。」" },
+  { id:"rB4b", t:"text", who:"玲奈（消息）", text:"没事吧？要不要我去扶你？", next:"k1" },
+  { id:"rC4", t:"text", who:"悠人", text:"「其实我在操场，你信吗？」" },
+  { id:"rC4b", t:"text", who:"玲奈（消息）", text:"又在开玩笑。快来吧。", next:"k1" },
+  { id:"k1", t:"text", who:"旁白", text:"你赶到教室。玲奈已经摆好了一摞书。", bg:"classroom", rena:{show:true, pos:"center"}, akiha:{show:false} },
+  { id:"k2", t:"text", who:"玲奈", text:"悠人君，来啦。这本《放学后的侦探》，你之前提过想看。" },
+  { id:"k3", t:"text", who:"悠人", text:"你连这个都记得……（内心）糟了，心里有点愧疚。" },
+  { id:"k4", t:"text", who:"玲奈", text:"还有这几本，是图书室刚淘汰下来的，我想把它们重新编目。" },
+  { id:"k5", t:"text", who:"悠人", text:"好啊，我来帮你搬。" },
+  { id:"k6", t:"text", who:"旁白", text:"你们并肩整理图书，阳光从窗边斜斜地照进来。" },
+  { id:"k7", t:"text", who:"悠人", text:"（内心）如果时间能停在这一刻就好了……可惜，它不会。" },
+  { id:"k8", t:"text", who:"旁白", text:"没过多久，手机又震了——这次是秋叶。" },
+  { id:"c5", t:"choice", prompt:"秋叶发消息：「怎么还不来操场？」怎么回？", opts:[
+    { label:"「马上到，在教室拿东西。」", goto:"rA5" },
+    { label:"「我被班主任叫去谈话了！」", goto:"rB5" },
+    { label:"「其实我在教室，你信吗？」", goto:"rC5" }
+  ] },
+  { id:"rA5", t:"text", who:"悠人", text:"「马上到，在教室拿东西。」" },
+  { id:"rA5b", t:"text", who:"秋叶（消息）", text:"快点哦，足球部要开始了！", next:"k9" },
+  { id:"rB5", t:"text", who:"悠人", text:"「我被班主任叫去谈话了！」" },
+  { id:"rB5b", t:"text", who:"秋叶（消息）", text:"呜——老师好过分！那我先占位置！", next:"k9" },
+  { id:"rC5", t:"text", who:"悠人", text:"「其实我在教室，你信吗？」" },
+  { id:"rC5b", t:"text", who:"秋叶（消息）", text:"哈？真的假的！……一定是骗我的吧？", next:"k9" },
+  { id:"k9", t:"text", who:"悠人", text:"（内心）不能再拖了。得赶紧脱身去操场。" },
+  { id:"c6", t:"choice", prompt:"怎么从教室脱身？", opts:[
+    { label:"「我去把书还给图书室。」", goto:"rA6" },
+    { label:"捂住肚子：「肚子好疼，去趟保健室。」", goto:"rB6" },
+    { label:"老实说：「我要去操场找秋叶。」", goto:"rC6" }
+  ] },
+  { id:"rA6", t:"text", who:"悠人", text:"（内心）用图书室当借口，听起来最正经。", next:"p1b" },
+  { id:"rB6", t:"text", who:"悠人", text:"（内心）虽然很丢人，但这是最快的方法。", next:"p1b" },
+  { id:"rC6", t:"text", who:"玲奈", text:"诶？……那你，早去早回。" },
+  { id:"rC6b", t:"text", who:"悠人", text:"（内心）玲奈居然没有多问……反而让我更心虚了。", next:"p1b" },
+  { id:"p1b", t:"text", who:"旁白", text:"你借口离开，一路小跑赶到操场。", bg:"playground", akiha:{show:true, pos:"center"}, rena:{show:false} },
+  { id:"p2b", t:"text", who:"秋叶", text:"悠人！这边这边！足球部要开始练习了。" },
+  { id:"p3b", t:"text", who:"秋叶", text:"……其实，今天想跟你说的是，下周的学园祭，我们班要出摊，我想和你一起当负责人。" },
+  { id:"p4b", t:"text", who:"悠人", text:"学园祭……和我一起？" },
+  { id:"p5b", t:"text", who:"秋叶", text:"对呀！两个人一起，一定能把摊位办得热热闹闹的。" },
+  { id:"p6b", t:"text", who:"悠人", text:"（内心）和秋叶一起出摊……听起来确实很开心。" },
+  { id:"p7b", t:"text", who:"旁白", text:"你的手机又震了。玲奈：书整理好了，你人呢？" },
+  { id:"c7", t:"choice", prompt:"怎么稳住玲奈？", opts:[
+    { label:"「我去帮老师搬器材，马上回。」", goto:"rA7" },
+    { label:"「我肚子疼，在保健室。」", goto:"rB7" },
+    { label:"把手机关静音，先陪秋叶看练习", goto:"rC7" }
+  ] },
+  { id:"rA7", t:"text", who:"悠人", text:"（内心）搬器材……这个借口今天还没用过。", next:"f1" },
+  { id:"rB7", t:"text", who:"悠人", text:"（内心）肚子疼这招，一天只能用一次啊。", next:"f1" },
+  { id:"rC7", t:"text", who:"悠人", text:"（内心）就装作没看到吧。……不，不行，玲奈会担心的。", next:"f1" },
+  { id:"f1", t:"text", who:"旁白", text:"夕阳西下。你像一台永动机，在教室和操场之间来回奔波。", bg:"gate", akiha:{show:false}, rena:{show:false} },
+  { id:"f2", t:"text", who:"旁白", text:"终于，两边都应付完了。你累得在校门口的长椅上瘫坐。" },
+  { id:"f3", t:"text", who:"悠人", text:"（内心）哈……哈……我居然，真的做到了？" },
+  { id:"f4", t:"text", who:"旁白", text:"然而，就在你准备回家时，两个熟悉的声音从身后响起。" },
+  { id:"f5", t:"text", who:"秋叶", text:"悠人——你今天从教室一路跑到操场，鞋带都松了哦。", akiha:{show:true, pos:"center"} },
+  { id:"f6", t:"text", who:"玲奈", text:"悠人君，体育课摔倒的样子，和在楼梯间说谎时一样可爱呢。", akiha:{pos:"right"}, rena:{show:true, pos:"left"} },
+  { id:"f7", t:"text", who:"悠人", text:"（内心）完了。全被看穿了。" },
+  { id:"f8", t:"text", who:"旁白", text:"秋叶和玲奈，一左一右，把你堵在校门口。" },
+  { id:"f9", t:"text", who:"悠人", text:"对不起！我……同时和你们两个交往了！" },
+  { id:"f10", t:"text", who:"秋叶", text:"哼，早就知道啦。你每次说谎，耳朵都会红。" },
+  { id:"f11", t:"text", who:"玲奈", text:"嗯。我也一直，在等悠人君亲口说出来。" },
+  { id:"f12", t:"text", who:"悠人", text:"那、那我……" },
+  { id:"f13", t:"text", who:"旁白", text:"两个女生相视一笑。" },
+  { id:"f14", t:"text", who:"秋叶", text:"所以，惩罚就是——学园祭，你要陪我一起出摊，还要请我吃一个月的炒面面包！" },
+  { id:"f15", t:"text", who:"玲奈", text:"那，就请我喝一个月的自动贩卖机咖啡吧。还有，坦白从宽。" },
+  { id:"f16", t:"text", who:"悠人", text:"（内心）脚踏两条船，果然是要翻的。不过能这样被原谅，我大概是世界上最幸运的混蛋了。" },
+  { id:"f17", t:"text", who:"旁白", text:"夕阳把三个人的影子拉得很长。今天之后，应该……不会再“双线作战”了吧。" },
+  { id:"end", t:"end", title:"—— 完 ——", text:"一段小小的、笨拙的青春误会，就此画上句号。\n好孩子，还是不要脚踏两条船哦。" }
+];
+
+function buildSteps(raw) {
+  const idx = {};
+  raw.forEach((s, i) => { if (s.id) idx[s.id] = i; });
+  return raw.map(s => {
+    const o = clone(s);
+    delete o.id;
+    if (o.t === "choice") {
+      o.opts = (o.opts || []).map(opt => ({ label: opt.label, goto: opt.goto ? idx[opt.goto] + 1 : null }));
+    } else {
+      o.next = o.next ? idx[o.next] + 1 : null;
+    }
+    return o;
+  });
+}
+
+const SPEED_MS = { slow: 62, normal: 30, fast: 14, instant: 0 };
+const DEFAULTS = { textSpeed: "normal", autoDelay: 2.5 };
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function loadJSON(key, fallback) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+}
+function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+/* ---------- 剧本与状态 ---------- */
+const DEFAULT_STEPS = buildSteps(DEFAULT_RAW);
+let STEPS = loadJSON("vn_script", null);
+if (!STEPS || !Array.isArray(STEPS)) STEPS = clone(DEFAULT_STEPS);
+
+let settings = loadJSON("vn_settings", DEFAULTS);
+let saves = loadJSON("vn_saves", {});
+let currentMode = "save";
+let editIndex = 0;
+
+let stepIndex = 0;
+let charState = { akiha: { visible: false, pos: "center" }, rena: { visible: false, pos: "center" } };
+let typingTimer = null;
+let autoTimer = null;
+
+function resetCharState() {
+  charState = { akiha: { visible: false, pos: "center" }, rena: { visible: false, pos: "center" } };
+}
+
+/* ---------- 屏幕切换 ---------- */
+function showScreen(id) {
+  document.querySelectorAll(".screen, .overlay").forEach(el => el.classList.remove("on"));
+  if (id) $(id).classList.add("on");
+  document.body.style.cursor = (id === "#game") ? "pointer" : "default";
+}
+function openOverlay(id) { $(id).classList.add("on"); }
+function closeOverlays() { document.querySelectorAll(".overlay").forEach(el => el.classList.remove("on")); }
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove("show"), 1900);
+}
+
+/* ---------- 角色立绘 ---------- */
+function charOf(who) {
+  if (!who) return null;
+  if (who.indexOf("秋叶") >= 0) return "akiha";
+  if (who.indexOf("玲奈") >= 0) return "rena";
+  return null;
+}
+
+function applyChar(key, cfg) {
+  if (!cfg) return;
+  const c = charState[key];
+  if (cfg.show === true) { c.visible = true; if (cfg.pos) c.pos = cfg.pos; }
+  else if (cfg.show === false) { c.visible = false; }
+  else if (cfg.pos) { c.pos = cfg.pos; }
+}
+
+function renderSprites(active) {
+  const ak = $("#spriteAkiha"), re = $("#spriteRena");
+  setSprite(ak, charState.akiha.visible, charState.akiha.pos || "center");
+  setSprite(re, charState.rena.visible, charState.rena.pos || "center");
+  ak.classList.toggle("dim", charState.akiha.visible && active && active !== "akiha");
+  re.classList.toggle("dim", charState.rena.visible && active && active !== "rena");
+}
+
+function setSprite(el, visible, pos) {
+  el.classList.remove("left", "right", "center", "show");
+  if (!visible) return;
+  el.classList.add(pos, "show");
+}
+
+function setBg(key) {
+  if (!key || !BG[key]) return;
+  const el = $("#bg");
+  el.style.backgroundImage = 'url("' + BG[key].img + '")';
+  $("#sceneLabel").textContent = BG[key].label;
+}
+
+function speakerClass(who) {
+  if (who === "旁白") return "narr";
+  if (who === "悠人") return "hero";
+  const c = charOf(who);
+  return c || "hero";
+}
+
+/* ---------- 剧情引擎 ---------- */
+function startGame() {
+  stepIndex = 0;
+  resetCharState();
+  $("#endScreen").classList.remove("on");
+  showScreen("#game");
+  renderStep(0);
+}
+
+function renderStep(i) {
+  clearTimeout(typingTimer);
+  clearTimeout(autoTimer);
+  stepIndex = i;
+  const st = STEPS[i];
+  if (!st) { showEnd({ title: "—— 完 ——", text: "感谢游玩。" }); return; }
+  if (st.t === "end") { showEnd(st); return; }
+  if (st.t === "choice") { showChoice(st); return; }
+
+  if (st.bg) setBg(st.bg);
+  if (st.akiha) applyChar("akiha", st.akiha);
+  if (st.rena) applyChar("rena", st.rena);
+  renderSprites(charOf(st.who));
+
+  const narr = (st.who === "旁白");
+  const pill = $("#namePill");
+  pill.textContent = narr ? "" : st.who;
+  pill.className = "name-pill " + speakerClass(st.who);
+  pill.style.display = narr ? "none" : "";
+  $("#dialogue").classList.toggle("narr-mode", narr);
+  $("#choices").innerHTML = "";
+
+  typeText(st.text, () => {
+    if (settings.auto) autoTimer = setTimeout(() => advance(), settings.autoDelay * 1000);
+  });
+}
+
+function typeText(text, done) {
+  const box = $("#textbox");
+  box.textContent = "";
+  const delay = SPEED_MS[settings.textSpeed] || 30;
+  if (delay === 0) { box.textContent = text; if (done) done(); return; }
+  let i = 0;
+  (function step() {
+    if (i <= text.length) {
+      box.textContent = text.slice(0, i);
+      i++;
+      typingTimer = setTimeout(step, delay);
+    } else {
+      typingTimer = null;
+      if (done) done();
+    }
+  })();
+}
+
+function showChoice(st) {
+  const c = $("#choices");
+  c.innerHTML = "";
+  if (!st.opts || !st.opts.length) { renderStep(stepIndex + 1); return; }
+  const p = document.createElement("div");
+  p.className = "choice-prompt";
+  p.textContent = "◆ " + (st.prompt || "请选择") + " ◆";
+  c.appendChild(p);
+  (st.opts || []).forEach(opt => {
+    const b = document.createElement("button");
+    b.className = "choice-btn";
+    b.textContent = opt.label;
+    b.onclick = () => {
+      c.innerHTML = "";
+      renderStep(Math.max(0, opt.goto != null ? opt.goto - 1 : stepIndex + 1));
+    };
+    c.appendChild(b);
+  });
+}
+
+function showEnd(st) {
+  $("#endTitle").textContent = st.title || "—— 完 ——";
+  $("#endText").textContent = st.text || "感谢游玩。";
+  $("#endScreen").classList.add("on");
+}
+
+function advance() {
+  if (!$("#game").classList.contains("on")) return;
+  if ($("#choices").innerHTML.trim() !== "") return;
+  const box = $("#textbox");
+  const st = STEPS[stepIndex];
+  if (!st || st.t === "end") return;
+  if (typingTimer) {
+    clearTimeout(typingTimer);
+    typingTimer = null;
+    box.textContent = st.text;
+    return;
+  }
+  const nxt = Math.max(0, (st.next != null) ? st.next - 1 : stepIndex + 1);
+  renderStep(nxt);
+}
+
+/* ---------- 存档 / 读档 ---------- */
+function saveToSlot(n) {
+  if (!$("#game").classList.contains("on")) { toast("请先开始游戏再存档"); return; }
+  saves[n] = { step: stepIndex, charState: clone(charState), ts: Date.now() };
+  saveJSON("vn_saves", saves);
+  toast("已保存到 存档 " + n);
+  renderSlots();
+}
+
+function loadSlot(n) {
+  const s = saves[n];
+  if (!s) { toast("该存档为空"); return; }
+  resetCharState();
+  if (s.charState) charState = clone(s.charState);
+  const at = Math.max(0, Math.min(s.step || 0, STEPS.length - 1));
+  closeOverlays();
+  $("#endScreen").classList.remove("on");
+  showScreen("#game");
+  renderStep(at);
+  toast("已读取 存档 " + n);
+}
+
+function deleteSlot(n) {
+  delete saves[n];
+  saveJSON("vn_saves", saves);
+  renderSlots();
+}
+
+function openSlots(mode) {
+  currentMode = mode;
+  $("#slotsTitle").textContent = (mode === "save") ? "存档" : "读档";
+  renderSlots();
+  openOverlay("#overlaySlots");
+}
+
+function renderSlots() {
+  const list = $("#slotsList");
+  list.innerHTML = "";
+  for (let i = 1; i <= 3; i++) {
+    const s = saves[i];
+    const row = document.createElement("div");
+    row.className = "slot-row";
+    const info = document.createElement("div");
+    info.className = "slot-info";
+    const name = document.createElement("div");
+    name.className = "slot-name";
+    name.textContent = "存档 " + i;
+    const meta = document.createElement("div");
+    meta.className = "slot-meta";
+    if (s) {
+      const d = new Date(s.ts);
+      const pad = (x) => (x < 10 ? "0" + x : x);
+      meta.textContent = "第 " + ((s.step || 0) + 1) + " 句 · " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + " " + pad(d.getMonth()+1) + "/" + pad(d.getDate());
+    } else {
+      meta.textContent = "（空）";
+    }
+    info.appendChild(name);
+    info.appendChild(meta);
+    row.appendChild(info);
+    if (currentMode === "save") {
+      row.appendChild(btn("保存", "primary", () => saveToSlot(i)));
+      if (s) row.appendChild(btn("删除", "danger", () => deleteSlot(i)));
+    } else {
+      if (s) row.appendChild(btn("读取", "primary", () => loadSlot(i)));
+    }
+    list.appendChild(row);
+  }
+}
+
+function btn(label, cls, handler) {
+  const b = document.createElement("button");
+  b.className = "btn " + (cls || "");
+  b.textContent = label;
+  b.onclick = handler;
+  return b;
+}
+
+/* ---------- 设置 ---------- */
+function renderSettings() {
+  document.querySelectorAll("#segSpeed button").forEach(b => b.classList.toggle("on", b.dataset.v === settings.textSpeed));
+  $("#autoDelayRange").value = settings.autoDelay;
+  $("#autoDelayVal").textContent = settings.autoDelay;
+}
+function applySettings() {
+  settings.textSpeed = settings.textSpeed || "normal";
+  saveJSON("vn_settings", settings);
+}
+
+/* ---------- 剧本编辑器 ---------- */
+const WHO_LIST = ["旁白", "悠人", "秋叶", "玲奈", "秋叶（消息）", "玲奈（消息）"];
+const BG_LIST = ["", ...Object.keys(BG)];
+const POS_LIST = [null, "left", "center", "right"];
+
+function newTextStep() { return { t:"text", who:"旁白", text:"在这里输入台词……", bg:null, akiha:null, rena:null, next:null }; }
+function newChoiceStep() { return { t:"choice", prompt:"请选择", opts:[{ label:"选项一", goto:null }, { label:"选项二", goto:null }] }; }
+function newEndStep() { return { t:"end", title:"—— 完 ——", text:"感谢游玩。" }; }
+
+function ensureScript() {
+  if (!STEPS || !STEPS.length) STEPS = clone(DEFAULT_STEPS);
+}
+
+function saveScript(showToastMsg) {
+  ensureScript();
+  saveJSON("vn_script", STEPS);
+  if (showToastMsg !== false) toast("剧本已保存");
+}
+
+function openEditor() {
+  ensureScript();
+  if (editIndex < 0 || editIndex >= STEPS.length) editIndex = 0;
+  showScreen("#editor");
+  renderList();
+  renderForm();
+}
+
+function stepTag(st) {
+  if (st.t === "choice") return "选项";
+  if (st.t === "end") return "结局";
+  return st.who || "文本";
+}
+function stepText(st) {
+  if (st.t === "choice") return "◆ " + (st.prompt || "");
+  return st.text || "";
+}
+
+function renderList() {
+  const list = $("#edList");
+  list.innerHTML = "";
+  STEPS.forEach((st, i) => {
+    const item = document.createElement("div");
+    item.className = "ed-list-item" + (i === editIndex ? " sel" : "");
+    const idx = document.createElement("div");
+    idx.className = "idx";
+    idx.textContent = i + 1;
+    const main = document.createElement("div");
+    main.className = "main";
+    const who = document.createElement("div");
+    who.className = "who";
+    who.textContent = stepTag(st);
+    const txt = document.createElement("div");
+    txt.className = "txt";
+    txt.textContent = stepText(st);
+    main.appendChild(who);
+    main.appendChild(txt);
+    item.appendChild(idx);
+    item.appendChild(main);
+    if (st.bg) {
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = (BG[st.bg] ? BG[st.bg].label : st.bg);
+      item.appendChild(tag);
+    }
+    if (st.akiha && (st.akiha.show !== undefined || st.akiha.pos)) {
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = "秋叶·" + (st.akiha.show === false ? "隐藏" : "显示");
+      item.appendChild(tag);
+    }
+    if (st.rena && (st.rena.show !== undefined || st.rena.pos)) {
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = "玲奈·" + (st.rena.show === false ? "隐藏" : "显示");
+      item.appendChild(tag);
+    }
+    item.onclick = () => { editIndex = i; renderList(); renderForm(); };
+    list.appendChild(item);
+  });
+  const el = list.querySelector(".ed-list-item.sel");
+  if (el) el.scrollIntoView({ block: "nearest" });
+}
+
+function renderForm() {
+  const form = $("#edForm");
+  form.innerHTML = "";
+  if (!STEPS.length) {
+    form.innerHTML = '<p style="color:#6f7490;margin-top:30px;">还没有任何内容，点上方「＋ 文本句」开始编写。</p>';
+    return;
+  }
+  const st = STEPS[editIndex];
+
+  const typeSeg = document.createElement("div");
+  typeSeg.className = "seg";
+  [["text","文本"],["choice","选项"],["end","结局"]].forEach(([v,lab]) => {
+    const b = document.createElement("button");
+    b.textContent = lab;
+    b.classList.toggle("on", st.t === v);
+    b.onclick = () => {
+      if (v === st.t) return;
+      if (v === "choice") STEPS[editIndex] = newChoiceStep();
+      else if (v === "end") STEPS[editIndex] = newEndStep();
+      else STEPS[editIndex] = newTextStep();
+      renderList(); renderForm();
+    };
+    typeSeg.appendChild(b);
+  });
+  form.appendChild(lbl("类型"));
+  form.appendChild(typeSeg);
+
+  if (st.t === "text") {
+    form.appendChild(lbl("说话人"));
+    const who = sel(WHO_LIST, st.who);
+    who.onchange = () => { st.who = who.value; renderList(); };
+    form.appendChild(who);
+
+    form.appendChild(lbl("台词文本"));
+    const txt = ta(st.text || "", "台词");
+    txt.oninput = () => { st.text = txt.value; renderList(); };
+    form.appendChild(txt);
+
+    form.appendChild(lbl("背景（留空=保持不变）"));
+    const bg = sel(BG_LIST.map(k => k ? BG[k].label : "（不变）"), st.bg ? BG[st.bg].label : "（不变）");
+    bg.onchange = () => { st.bg = bg.selectedIndex === 0 ? null : BG_LIST[bg.selectedIndex]; };
+    form.appendChild(bg);
+
+    form.appendChild(charCfg("秋叶（akiha）", st.akiha || {}, (cfg) => { st.akiha = cfg; renderList(); }, "#ff8fb0"));
+    form.appendChild(charCfg("玲奈（rena）", st.rena || {}, (cfg) => { st.rena = cfg; renderList(); }, "#7fb3ff"));
+
+    form.appendChild(lbl("跳转到第几句（留空=下一句，1 表示第一句）"));
+    const next = input(st.next != null ? st.next : "");
+    next.placeholder = "例如 10";
+    next.oninput = () => { const v = parseInt(next.value, 10); st.next = isNaN(v) ? null : v; };
+    form.appendChild(next);
+    form.appendChild(hint("跳转可用于制作分支或循环。文本句默认自动进入下一句。"));
+  }
+
+  if (st.t === "choice") {
+    form.appendChild(lbl("提示语"));
+    const prompt = ta(st.prompt || "", "提示语");
+    prompt.oninput = () => { st.prompt = prompt.value; renderList(); };
+    form.appendChild(prompt);
+
+    form.appendChild(lbl("选项（「跳到第几句」留空=下一句）"));
+    (st.opts || []).forEach((opt, oi) => {
+      form.appendChild(optRow(opt, oi, st));
+    });
+    const add = document.createElement("button");
+    add.textContent = "＋ 添加选项";
+    add.style.marginTop = "8px";
+    add.onclick = () => {
+      st.opts = st.opts || [];
+      st.opts.push({ label: "新选项", goto: null });
+      renderList(); renderForm();
+    };
+    form.appendChild(add);
+  }
+
+  if (st.t === "end") {
+    form.appendChild(lbl("结局标题"));
+    const title = input(st.title || "—— 完 ——");
+    title.oninput = () => { st.title = title.value; renderList(); };
+    form.appendChild(title);
+    form.appendChild(lbl("结局文字"));
+    const txt = ta(st.text || "", "结局文字");
+    txt.oninput = () => { st.text = txt.value; renderList(); };
+    form.appendChild(txt);
+  }
+}
+
+function lbl(t) { const l = document.createElement("label"); l.textContent = t; return l; }
+function hint(t) { const h = document.createElement("div"); h.className = "hint"; h.textContent = t; return h; }
+function input(v) { const i = document.createElement("input"); i.type = "text"; i.value = v; return i; }
+function ta(v, ph) { const t = document.createElement("textarea"); t.value = v; t.placeholder = ph || ""; return t; }
+function sel(opts, cur) {
+  const s = document.createElement("select");
+  opts.forEach(o => { const op = document.createElement("option"); op.textContent = o; s.appendChild(op); });
+  s.value = cur;
+  return s;
+}
+
+function charCfg(title, cfg, onChange, color) {
+  const box = document.createElement("div");
+  box.className = "char-cfg";
+  const ctitle = document.createElement("div");
+  ctitle.className = "ctitle";
+  ctitle.style.color = color;
+  ctitle.textContent = title;
+  box.appendChild(ctitle);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  const cell1 = document.createElement("div");
+  cell1.className = "cell";
+  cell1.appendChild(lbl("状态"));
+  const show = document.createElement("select");
+  ["（不变）","显示","隐藏"].forEach(o => show.appendChild(new Option(o)));
+  show.value = cfg.show === true ? "显示" : cfg.show === false ? "隐藏" : "（不变）";
+  show.onchange = () => {
+    cfg.show = show.value === "显示" ? true : show.value === "隐藏" ? false : null;
+    if (cfg.show === true && !cfg.pos) cfg.pos = "center";
+    onChange(cfg);
+  };
+  cell1.appendChild(show);
+  row.appendChild(cell1);
+
+  const cell2 = document.createElement("div");
+  cell2.className = "cell";
+  cell2.appendChild(lbl("位置"));
+  const pos = document.createElement("select");
+  ["（不变）","左","中","右"].forEach(o => pos.appendChild(new Option(o)));
+  pos.value = cfg.pos === "left" ? "左" : cfg.pos === "right" ? "右" : cfg.pos === "center" ? "中" : "（不变）";
+  pos.onchange = () => {
+    const map = { "左":"left", "中":"center", "右":"right" };
+    cfg.pos = map[pos.value] || null;
+    if (cfg.pos) cfg.show = true;
+    onChange(cfg);
+  };
+  cell2.appendChild(pos);
+  row.appendChild(cell2);
+  box.appendChild(row);
+  return box;
+}
+
+function optRow(opt, oi, st) {
+  const row = document.createElement("div");
+  row.className = "ed-opt";
+  const txt = document.createElement("input");
+  txt.type = "text";
+  txt.className = "txt";
+  txt.value = opt.label;
+  txt.placeholder = "选项文字";
+  txt.oninput = () => { opt.label = txt.value; renderList(); };
+  const goto = document.createElement("input");
+  goto.type = "text";
+  goto.className = "goto";
+  goto.value = opt.goto != null ? opt.goto : "";
+  goto.placeholder = "跳到第几句";
+  goto.oninput = () => { const v = parseInt(goto.value, 10); opt.goto = isNaN(v) ? null : v; };
+  const del = document.createElement("button");
+  del.textContent = "删除";
+  del.onclick = () => {
+    st.opts.splice(oi, 1);
+    renderList(); renderForm();
+  };
+  row.appendChild(txt);
+  row.appendChild(goto);
+  row.appendChild(del);
+  return row;
+}
+
+/* ---------- 编辑器动作 ---------- */
+function edAdd(t) {
+  ensureScript();
+  const st = t === "choice" ? newChoiceStep() : t === "end" ? newEndStep() : newTextStep();
+  STEPS.splice(editIndex + 1, 0, st);
+  editIndex = Math.min(editIndex + 1, STEPS.length - 1);
+  renderList(); renderForm();
+}
+function edDel() {
+  if (!STEPS.length) return;
+  STEPS.splice(editIndex, 1);
+  if (editIndex >= STEPS.length) editIndex = STEPS.length - 1;
+  if (editIndex < 0) editIndex = 0;
+  renderList(); renderForm();
+}
+function edMove(dir) {
+  const j = editIndex + dir;
+  if (j < 0 || j >= STEPS.length) return;
+  const tmp = STEPS[editIndex];
+  STEPS[editIndex] = STEPS[j];
+  STEPS[j] = tmp;
+  editIndex = j;
+  renderList(); renderForm();
+}
+function edDup() {
+  if (!STEPS.length) return;
+  const copy = clone(STEPS[editIndex]);
+  STEPS.splice(editIndex + 1, 0, copy);
+  editIndex++;
+  renderList(); renderForm();
+}
+function edReset() {
+  STEPS = clone(DEFAULT_STEPS);
+  saveScript(false);
+  editIndex = 0;
+  renderList(); renderForm();
+  toast("已重置为默认剧本");
+}
+function edExport() {
+  ensureScript();
+  const blob = new Blob([JSON.stringify(STEPS, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "视觉小说剧本.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function edImport(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data)) throw new Error("格式错误");
+      STEPS = data;
+      saveScript(false);
+      editIndex = 0;
+      renderList(); renderForm();
+      toast("导入成功");
+    } catch (e) {
+      toast("导入失败：不是有效的剧本 JSON");
+    }
+  };
+  reader.readAsText(file);
+}
+function edPlay() {
+  saveScript(false);
+  startGame();
+}
+
+/* ---------- 事件绑定 ---------- */
+function bindTitle() {
+  $("#btnStart").onclick = startGame;
+  $("#btnLoad").onclick = () => openSlots("load");
+  $("#btnSave").onclick = () => {
+    if (!$("#game").classList.contains("on")) { toast("请先开始游戏再存档"); return; }
+    openSlots("save");
+  };
+  $("#btnSettings").onclick = () => { renderSettings(); openOverlay("#overlaySettings"); };
+  $("#btnQuit").onclick = () => openOverlay("#overlayQuit");
+  $("#btnEditorSmall").onclick = openEditor;
+
+  $("#fbStart").onclick = startGame;
+  $("#fbSave").onclick = () => {
+    if (!$("#game").classList.contains("on")) { toast("请先开始游戏再存档"); return; }
+    openSlots("save");
+  };
+  $("#fbLoad").onclick = () => openSlots("load");
+  $("#fbSettings").onclick = () => { renderSettings(); openOverlay("#overlaySettings"); };
+  $("#fbEditor").onclick = openEditor;
+  $("#fbQuit").onclick = () => openOverlay("#overlayQuit");
+}
+bindTitle();
+
+$("#btnMenu").onclick = () => openOverlay("#overlayMenu");
+$("#menuResume").onclick = () => closeOverlays();
+$("#menuSave").onclick = () => { closeOverlays(); openSlots("save"); };
+$("#menuLoad").onclick = () => { closeOverlays(); openSlots("load"); };
+$("#menuSettings").onclick = () => { closeOverlays(); renderSettings(); openOverlay("#overlaySettings"); };
+$("#menuEditor").onclick = () => { closeOverlays(); saveScript(false); openEditor(); };
+$("#menuTitle").onclick = () => { closeOverlays(); $("#endScreen").classList.remove("on"); showScreen("#title"); };
+$("#menuQuit").onclick = () => { closeOverlays(); openOverlay("#overlayQuit"); };
+
+$("#btnAuto").onclick = () => {
+  settings.auto = !settings.auto;
+  $("#btnAuto").classList.toggle("on", settings.auto);
+  if (settings.auto) {
+    clearTimeout(autoTimer);
+    if (!$("#choices").innerHTML.trim() && !typingTimer) autoTimer = setTimeout(() => advance(), settings.autoDelay * 1000);
+  } else {
+    clearTimeout(autoTimer);
+  }
+  toast(settings.auto ? "自动播放 开" : "自动播放 关");
+};
+
+$("#slotsBack").onclick = () => closeOverlays();
+$("#settingsBack").onclick = () => { applySettings(); closeOverlays(); };
+
+document.querySelectorAll("#segSpeed button").forEach(b => {
+  b.onclick = () => { settings.textSpeed = b.dataset.v; renderSettings(); };
+});
+$("#autoDelayRange").oninput = () => {
+  settings.autoDelay = parseFloat($("#autoDelayRange").value);
+  $("#autoDelayVal").textContent = settings.autoDelay;
+};
+
+$("#btnFullscreen").onclick = () => {
+  try {
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+    }
+  } catch (e) { toast("当前浏览器不支持全屏"); }
+};
+$("#btnClearSaves").onclick = () => {
+  saves = {};
+  saveJSON("vn_saves", saves);
+  toast("已清空全部存档");
+};
+
+$("#quitCancel").onclick = () => closeOverlays();
+$("#quitOk").onclick = () => {
+  try { window.close(); } catch (e) {}
+  setTimeout(() => { if (!document.hidden) toast("若浏览器未关闭，请手动关闭此标签页"); }, 400);
+};
+$("#btnEndTitle").onclick = () => {
+  $("#endScreen").classList.remove("on");
+  closeOverlays();
+  showScreen("#title");
+};
+
+$("#edAddText").onclick = () => edAdd("text");
+$("#edAddChoice").onclick = () => edAdd("choice");
+$("#edAddEnd").onclick = () => edAdd("end");
+$("#edDup").onclick = edDup;
+$("#edUp").onclick = () => edMove(-1);
+$("#edDown").onclick = () => edMove(1);
+$("#edDel").onclick = edDel;
+$("#edReset").onclick = edReset;
+$("#edExport").onclick = edExport;
+$("#edImport").onclick = () => $("#edFile").click();
+$("#edSave").onclick = () => saveScript(true);
+$("#edPlay").onclick = edPlay;
+$("#edBack").onclick = () => { saveScript(false); showScreen("#title"); };
+$("#edFile").onchange = (e) => {
+  if (e.target.files && e.target.files[0]) edImport(e.target.files[0]);
+  e.target.value = "";
+};
+$("#titleBg").onerror = () => { $("#title").classList.add("fallback"); };
+
+// 点击推进（任意处，按钮除外）
+$("#game").onclick = (e) => {
+  if (e.target.closest("button")) return;
+  advance();
+};
+document.addEventListener("keydown", (e) => {
+  if (e.key === " " || e.key === "Enter") {
+    if ($("#game").classList.contains("on") && !document.querySelector(".overlay.on")) {
+      e.preventDefault();
+      advance();
+    }
+  } else if (e.key === "Escape") {
+    if (document.querySelector(".overlay.on")) closeOverlays();
+    else if ($("#game").classList.contains("on")) openOverlay("#overlayMenu");
+    else if ($("#editor").classList.contains("on")) showScreen("#title");
+  }
+});
+
+renderSettings();
+applySettings();
+</script>
+</body>
+</html>
